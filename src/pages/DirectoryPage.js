@@ -1,3 +1,4 @@
+// src/pages/DirectoryPage.js
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -10,15 +11,21 @@ import {
   Input,
   Button,
   Divider,
+  useDisclosure,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import MemberModal from '../components/MemberModal';
 
 function DirectoryPage() {
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const navigate = useNavigate();
+
+  const currentUser = JSON.parse(localStorage.getItem('member'));
 
   useEffect(() => {
     const member = localStorage.getItem('member');
@@ -27,22 +34,21 @@ function DirectoryPage() {
     }
   }, [navigate]);
 
+  const fetchMembers = async () => {
+    const { data, error } = await supabase
+      .from('members')
+      .select('*');
+
+    if (error) {
+      console.error('Error fetching members:', error.message);
+    } else {
+      setMembers(data);
+    }
+
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchMembers = async () => {
-      const { data, error } = await supabase
-        .from('members')
-        .select('first_name, last_name, email, phone, photo_url, officer_title, updated_at') // ✅ include updated_at
-        .order('last_name', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching members:', error.message);
-      } else {
-        setMembers(data);
-      }
-
-      setLoading(false);
-    };
-
     fetchMembers();
   }, []);
 
@@ -51,18 +57,44 @@ function DirectoryPage() {
     navigate('/');
   };
 
+  const officerOrder = [
+    'President',
+    'Vice-President',
+    'Secretary',
+    'Treasurer',
+    'Oktoberfest Chair',
+  ];
+
   const filteredMembers = members.filter((m) => {
     const term = searchTerm.toLowerCase();
     return (
-      m.first_name.toLowerCase().includes(term) ||
-      m.last_name.toLowerCase().includes(term) ||
-      m.email.toLowerCase().includes(term) ||
-      (m.officer_title && m.officer_title.toLowerCase().includes(term))
+      (m.first_name?.toLowerCase() || '').includes(term) ||
+      (m.last_name?.toLowerCase() || '').includes(term) ||
+      (m.email?.toLowerCase() || '').includes(term) ||
+      (m.officer_title?.toLowerCase() || '').includes(term)
     );
   });
+  
 
-  const officers = filteredMembers.filter((m) => m.officer_title);
-  const nonOfficers = filteredMembers.filter((m) => !m.officer_title);
+  const officers = filteredMembers
+    .filter((m) => m.officer_title)
+    .sort((a, b) => {
+      return (
+        officerOrder.indexOf(a.officer_title) -
+        officerOrder.indexOf(b.officer_title)
+      );
+    });
+
+  const nonOfficers = filteredMembers
+    .filter((m) => !m.officer_title)
+    .sort((a, b) =>
+      a.last_name?.localeCompare(b.last_name)
+    );
+
+  const handleCardClick = (member) => {
+    setSelectedMember(member);
+    onOpen();
+  };
 
   const MemberCard = ({ member }) => (
     <HStack
@@ -73,6 +105,8 @@ function DirectoryPage() {
       spacing={6}
       align="center"
       w="100%"
+      cursor="pointer"
+      onClick={() => handleCardClick(member)}
     >
       <Avatar
         src={member.photo_url || undefined}
@@ -90,11 +124,6 @@ function DirectoryPage() {
         )}
         <Text fontSize="sm">{member.email}</Text>
         {member.phone && <Text fontSize="sm">{member.phone}</Text>}
-        {member.updated_at && (
-          <Text fontSize="xs" color="gray.500" mt={1}>
-            Last updated: {new Date(member.updated_at).toLocaleDateString()}
-          </Text>
-        )}
       </Box>
     </HStack>
   );
@@ -137,6 +166,16 @@ function DirectoryPage() {
             <Text>No matching members found.</Text>
           )}
         </VStack>
+      )}
+
+      {selectedMember && (
+        <MemberModal
+          isOpen={isOpen}
+          onClose={onClose}
+          member={selectedMember}
+          isCurrentUser={currentUser?.email === selectedMember.email}
+          onMemberUpdate={fetchMembers}
+        />
       )}
     </Box>
   );

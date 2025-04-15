@@ -37,11 +37,13 @@ function DirectoryPage() {
   const fetchMembers = async () => {
     const { data, error } = await supabase
       .from('members')
-      .select('*');
+      .select('first_name, last_name, email, phone, photo_url, officer_title, hide_contact_info')
+      .order('last_name', { ascending: true });
 
     if (error) {
       console.error('Error fetching members:', error.message);
     } else {
+      console.log('✅ Members:', data);
       setMembers(data);
     }
 
@@ -68,10 +70,10 @@ function DirectoryPage() {
   const filteredMembers = members.filter((m) => {
     const term = searchTerm.toLowerCase();
     return (
-      (m.first_name?.toLowerCase() || '').includes(term) ||
-      (m.last_name?.toLowerCase() || '').includes(term) ||
-      (m.email?.toLowerCase() || '').includes(term) ||
-      (m.officer_title?.toLowerCase() || '').includes(term)
+      (m.first_name?.toLowerCase().includes(term) || '') ||
+      (m.last_name?.toLowerCase().includes(term) || '') ||
+      (m.email?.toLowerCase().includes(term) || '') ||
+      (m.officer_title?.toLowerCase().includes(term) || '')
     );
   });
   
@@ -122,8 +124,13 @@ function DirectoryPage() {
             {member.officer_title}
           </Text>
         )}
-        <Text fontSize="sm">{member.email}</Text>
-        {member.phone && <Text fontSize="sm">{member.phone}</Text>}
+        {!member.hide_contact_info && (
+  <>
+    <Text fontSize="sm">{member.email}</Text>
+    {member.phone && <Text fontSize="sm">{member.phone}</Text>}
+  </>
+)}
+
       </Box>
     </HStack>
   );

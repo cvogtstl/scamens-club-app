@@ -9,6 +9,7 @@ import {
   Stack,
   Heading,
   useToast,
+  Checkbox,
 } from '@chakra-ui/react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -20,13 +21,16 @@ function RegistrationForm() {
     email: '',
     phone: '',
     photo: null,
+    hide_contact_info: false,
   });
   const toast = useToast();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === 'photo') {
+    const { name, value, type, checked, files } = e.target;
+    if (type === 'checkbox') {
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === 'photo') {
       setFormData((prev) => ({ ...prev, photo: files[0] }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -50,8 +54,6 @@ function RegistrationForm() {
           contentType: file.type,
         });
 
-      console.log("📤 Upload result:", { data, error });
-
       if (error) {
         toast({
           title: 'Photo upload failed.',
@@ -68,21 +70,21 @@ function RegistrationForm() {
 
       photo_url = publicData.publicUrl;
     }
-// Step 1: Check for existing email
-const { data: existing, error: fetchError } = await supabase
-  .from('members')
-  .select('*')
-  .eq('email', formData.email)
-  .maybeSingle(); // ← avoids crash if no match
 
-if (existing) {
-  toast({
-    title: 'Email already registered.',
-    status: 'warning',
-    duration: 4000,
-  });
-  return; // stop further execution
-}
+    const { data: existing, error: fetchError } = await supabase
+      .from('members')
+      .select('*')
+      .eq('email', formData.email)
+      .maybeSingle();
+
+    if (existing) {
+      toast({
+        title: 'Email already registered.',
+        status: 'warning',
+        duration: 4000,
+      });
+      return;
+    }
 
     const { error: insertError } = await supabase.from('members').insert([
       {
@@ -91,6 +93,7 @@ if (existing) {
         email: formData.email,
         phone: formData.phone,
         photo_url,
+        hide_contact_info: formData.hide_contact_info,
         updated_at: new Date().toISOString(),
       },
     ]);
@@ -98,15 +101,16 @@ if (existing) {
     if (insertError) {
       toast({ title: 'Registration failed.', status: 'error' });
     } else {
-        toast({ title: 'Registered successfully!', status: 'success' });
-        setFormData({
-          first_name: '',
-          last_name: '',
-          email: '',
-          phone: '',
-          photo: null,
-        });
-        navigate('/');
+      toast({ title: 'Registered successfully!', status: 'success' });
+      setFormData({
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        photo: null,
+        hide_contact_info: false,
+      });
+      navigate('/');
     }
   };
 
@@ -138,6 +142,12 @@ if (existing) {
           <FormControl>
             <FormLabel>Photo</FormLabel>
             <Input type="file" name="photo" accept="image/*" onChange={handleChange} />
+          </FormControl>
+
+          <FormControl>
+            <Checkbox name="hide_contact_info" isChecked={formData.hide_contact_info} onChange={handleChange}>
+              Hide my contact info
+            </Checkbox>
           </FormControl>
 
           <Button colorScheme="blue" type="submit">Register</Button>

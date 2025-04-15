@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
   ModalCloseButton,
-  Button, Avatar, Text, Box, VStack, FormControl, FormLabel, Input, useToast
+  Button, Avatar, Text, Box, VStack, FormControl, FormLabel, Input, Checkbox, useToast
 } from '@chakra-ui/react';
 import { supabase } from '../supabaseClient';
 
@@ -13,8 +13,10 @@ export default function MemberModal({ isOpen, onClose, member, isCurrentUser, on
   const toast = useToast();
 
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === 'photo') {
+    const { name, value, files, type, checked } = e.target;
+    if (type === 'checkbox') {
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === 'photo') {
       setFormData((prev) => ({ ...prev, photo: files[0] }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -50,6 +52,7 @@ export default function MemberModal({ isOpen, onClose, member, isCurrentUser, on
         last_name: formData.last_name,
         email: formData.email,
         phone: formData.phone,
+        hide_contact_info: formData.hide_contact_info,
         photo_url,
         updated_at: new Date().toISOString()
       })
@@ -108,14 +111,27 @@ export default function MemberModal({ isOpen, onClose, member, isCurrentUser, on
                 <FormLabel>New Photo</FormLabel>
                 <Input type="file" name="photo" onChange={handleChange} />
               </FormControl>
+              <FormControl>
+                <Checkbox
+                  name="hide_contact_info"
+                  isChecked={formData.hide_contact_info}
+                  onChange={handleChange}
+                >
+                  Hide my contact info
+                </Checkbox>
+              </FormControl>
             </VStack>
           ) : (
             <VStack spacing={3} textAlign="center">
               <Avatar size="xl" src={member.photo_url} name={`${member.first_name} ${member.last_name}`} />
               <Text fontWeight="bold">{member.first_name} {member.last_name}</Text>
               {member.officer_title && <Text color="blue.600">{member.officer_title}</Text>}
-              <Text>{member.email}</Text>
-              {member.phone && <Text>{member.phone}</Text>}
+              {!member.hide_contact_info && (
+                <>
+                  <Text>{member.email}</Text>
+                  {member.phone && <Text>{member.phone}</Text>}
+                </>
+              )}
               {member.updated_at && (
                 <Text fontSize="sm" color="gray.500">
                   Last updated: {new Date(member.updated_at).toLocaleString()}

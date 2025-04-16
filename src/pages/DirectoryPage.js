@@ -12,6 +12,10 @@ import {
   Button,
   Divider,
   useDisclosure,
+  SimpleGrid,
+  Switch,
+  FormControl,
+  FormLabel,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
@@ -22,6 +26,7 @@ function DirectoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [isGridView, setIsGridView] = useState(true);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const navigate = useNavigate();
 
@@ -43,7 +48,6 @@ function DirectoryPage() {
     if (error) {
       console.error('Error fetching members:', error.message);
     } else {
-      console.log('✅ Members:', data);
       setMembers(data);
     }
 
@@ -59,13 +63,7 @@ function DirectoryPage() {
     navigate('/');
   };
 
-  const officerOrder = [
-    'President',
-    'Vice-President',
-    'Secretary',
-    'Treasurer',
-    'Oktoberfest Chair',
-  ];
+  const officerOrder = ['President', 'Vice-President', 'Secretary', 'Treasurer', 'Oktoberfest Chair'];
 
   const filteredMembers = members.filter((m) => {
     const term = searchTerm.toLowerCase();
@@ -76,22 +74,14 @@ function DirectoryPage() {
       (m.officer_title?.toLowerCase().includes(term) || '')
     );
   });
-  
 
   const officers = filteredMembers
     .filter((m) => m.officer_title)
-    .sort((a, b) => {
-      return (
-        officerOrder.indexOf(a.officer_title) -
-        officerOrder.indexOf(b.officer_title)
-      );
-    });
+    .sort((a, b) => officerOrder.indexOf(a.officer_title) - officerOrder.indexOf(b.officer_title));
 
   const nonOfficers = filteredMembers
     .filter((m) => !m.officer_title)
-    .sort((a, b) =>
-      a.last_name?.localeCompare(b.last_name)
-    );
+    .sort((a, b) => a.last_name?.localeCompare(b.last_name));
 
   const handleCardClick = (member) => {
     setSelectedMember(member);
@@ -99,41 +89,49 @@ function DirectoryPage() {
   };
 
   const MemberCard = ({ member }) => (
-    <HStack
+    <Box
       p={4}
       bg="white"
       boxShadow="sm"
       borderRadius="md"
-      spacing={6}
-      align="center"
-      w="100%"
       cursor="pointer"
       onClick={() => handleCardClick(member)}
+      w="100%"
+      h="100%"
+      minH="220px" // Ensures uniform height
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="flex-start"
+      textAlign="center"
     >
       <Avatar
         src={member.photo_url || undefined}
         name={`${member.first_name} ${member.last_name}`}
         size="xl"
+        mb={2}
       />
-      <Box>
-        <Text fontWeight="bold" fontSize="lg">
-          {member.first_name} {member.last_name}
+      <Text fontWeight="bold" fontSize="lg">
+        {member.first_name} {member.last_name}
+      </Text>
+      {member.officer_title && (
+        <Text fontSize="sm" color="blue.600">
+          {member.officer_title}
         </Text>
-        {member.officer_title && (
-          <Text fontSize="sm" color="blue.600">
-            {member.officer_title}
-          </Text>
-        )}
-        {!member.hide_contact_info && (
-  <>
-    <Text fontSize="sm">{member.email}</Text>
-    {member.phone && <Text fontSize="sm">{member.phone}</Text>}
-  </>
-)}
-
-      </Box>
-    </HStack>
+      )}
+      {!member.hide_contact_info ? (
+        <>
+          <Text fontSize="sm">{member.email}</Text>
+          {member.phone && <Text fontSize="sm">{member.phone}</Text>}
+        </>
+      ) : (
+        <Text fontSize="sm" color="gray.400" mt={1}>
+          Contact info hidden
+        </Text>
+      )}
+    </Box>
   );
+  
 
   return (
     <Box p={6}>
@@ -144,34 +142,59 @@ function DirectoryPage() {
         </Button>
       </HStack>
 
-      <Input
-        placeholder="Search members by name, email, or title..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        mb={6}
-      />
+      <HStack mb={4} justify="space-between">
+        <Input
+          placeholder="Search members by name, email, or title..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          maxW="sm"
+        />
+        <FormControl display="flex" alignItems="center" w="auto">
+          <FormLabel htmlFor="view-toggle" mb="0">
+            Grid View
+          </FormLabel>
+          <Switch id="view-toggle" isChecked={isGridView} onChange={() => setIsGridView(!isGridView)} />
+        </FormControl>
+      </HStack>
 
       {loading ? (
         <Spinner />
       ) : (
         <VStack spacing={6} align="stretch">
-          {officers.length > 0 && (
-            <>
-              <Heading size="md">Club Officers</Heading>
-              {officers.map((member, i) => (
-                <MemberCard key={`officer-${i}`} member={member} />
+        {officers.length > 0 && (
+  <>
+    <Heading size="md" mb={2}>Club Officers</Heading>
+
+    {isGridView ? (
+      <SimpleGrid columns={[1, 2, 3]} spacing={4}>
+        {officers.map((member, i) => (
+          <MemberCard key={`officer-${i}`} member={member} />
+        ))}
+      </SimpleGrid>
+    ) : (
+      officers.map((member, i) => (
+        <MemberCard key={`officer-${i}`} member={member} />
+      ))
+    )}
+
+    <Divider my={6} borderColor="gray.400" />
+    <Heading size="md" mb={2}>Members</Heading>
+  </>
+)}
+
+          {isGridView ? (
+            <SimpleGrid columns={[1, 2, 3]} spacing={4}>
+              {nonOfficers.map((member, i) => (
+                <MemberCard key={`member-${i}`} member={member} />
               ))}
-              <Divider my={4} />
-            </>
+            </SimpleGrid>
+          ) : (
+            nonOfficers.map((member, i) => (
+              <MemberCard key={`member-${i}`} member={member} />
+            ))
           )}
 
-          {nonOfficers.map((member, i) => (
-            <MemberCard key={`member-${i}`} member={member} />
-          ))}
-
-          {filteredMembers.length === 0 && (
-            <Text>No matching members found.</Text>
-          )}
+          {filteredMembers.length === 0 && <Text>No matching members found.</Text>}
         </VStack>
       )}
 
